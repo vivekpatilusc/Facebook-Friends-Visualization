@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Facebook Friends Visualization</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
+    <style>
+      @import url(http://fonts.googleapis.com/css?family=Source+Code+Pro:400,600);
+      body {font-family: "Source Code Pro", Consolas, monaco, monospace; line-height: 160%; font-size: 16px;  margin: 0; }
+      path.link {
+        fill: none;
+        stroke-width: 2px;
+      }
+      .node:not(:hover) .nodetext {
+        display: none;
+      }
+      h1 { font-size: 36px; margin: 10px 0; text-transform: uppercase; font-weight: normal;}
+      h2, h3 { font-size: 18px; margin: 5px 0 ; font-weight: normal;}
+      header {padding: 20px; position: absolute; top: 0; left: 0;}
+      a:link { color: #EE3124; text-decoration: none;}
+      a:visited { color: #EE3124; }
+      a:hover { color: #A4CD39; text-decoration: underline;}
+      a:active { color: #EE3124; }
+    .btn {
+  background: #3498db;
+  background-image: -webkit-linear-gradient(top, #3498db, #2980b9);
+  background-image: -moz-linear-gradient(top, #3498db, #2980b9);
+  background-image: -ms-linear-gradient(top, #3498db, #2980b9);
+  background-image: -o-linear-gradient(top, #3498db, #2980b9);
+  background-image: linear-gradient(to bottom, #3498db, #2980b9);
+  font-family: Arial;
+  color: #ffffff;
+  font-size: 10px;
+  padding: 5px 10px 5px 10px;
+  text-decoration: none;
+}
+
+.btn:hover {
+  background: #3cb0fd;
+  background-image: -webkit-linear-gradient(top, #3cb0fd, #3498db);
+  background-image: -moz-linear-gradient(top, #3cb0fd, #3498db);
+  background-image: -ms-linear-gradient(top, #3cb0fd, #3498db);
+  background-image: -o-linear-gradient(top, #3cb0fd, #3498db);
+  background-image: linear-gradient(to bottom, #3cb0fd, #3498db);
+  text-decoration: none;
+}
+.img-circle {
+    border-radius: 50%;
+}
+    </style>
+</head>
+    
+
+<body>
+<script>
+var d3json = {};
+function render()
+{
+  var tcBlack = "#130C0E";
+
+    var w = 960,
+        h = 800,
+        maxNodeSize = 50,
+        x_browser = 20,
+        y_browser = 25,
+        root;
+ 
+    var vis;
+    var force = d3.layout.force(); 
+
+    vis = d3.select("#vis").append("svg").attr("width", "100%").attr("height", h);
+
+    
+  root = d3json;
+  root.fixed = true;
+  root.x = w / 2;
+  root.y = h / 4;
+
+
+        // Build the path
+  var defs = vis.insert("svg:defs")
+      .data(["end"]);
+
+
+  defs.enter().append("svg:path")
+      .attr("d", "M0,-5L10,0L0,5");
+
+  update();
+ 
+ 
+/**
+ *   
+ */
+function update() {
+  var nodes = flatten(root),
+      links = d3.layout.tree().links(nodes);
+ 
+  // Restart the force layout.
+  force.nodes(nodes)
+        .links(links)
+        .gravity(0.05)
+    .charge(-1500)
+    .linkDistance(100)
+    .friction(0.5)
+    .linkStrength(function(l, i) {return 1; })
+    .size([w, h])
+    .on("tick", tick)
+        .start();
+ 
+   var path = vis.selectAll("path.link")
+      .data(links, function(d) { return d.target.id; });
+ 
+    path.enter().insert("svg:path")
+      .attr("class", "link")
+      // .attr("marker-end", "url(#end)")
+      .style("stroke", "#eee");
+ 
+ 
+  // Exit any old paths.
+  path.exit().remove();
+ 
+ 
+ 
+  // Update the nodes…
+  var node = vis.selectAll("g.node")
+      .data(nodes, function(d) { return d.id; });
+ 
+ 
+  // Enter any new nodes.
+  var nodeEnter = node.enter().append("svg:g")
+      .attr("class", "node")
+      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+      .on("click", click)
+      .call(force.drag);
+ 
+  // Append a circle
+  nodeEnter.append("svg:circle")
+      .attr("r", function(d) { return Math.sqrt(d.size) / 10 || 4.5; })
+      .style("fill", "#eee");
+ 
+   
+  // Append images
+  var images = nodeEnter.
+        append("svg:image")
+        .attr("xlink:href",  function(d) { return d.img;})
+        .attr("x", function(d) { return -25;})
+        .attr("y", function(d) { return -25;})
+        .attr("height", 50)
+        .attr("width", 50)
+        .classed("img-circle",true);
+  
+  // make the image grow a little on mouse over and add the text details on click
+  var setEvents = images
+          // Append hero text
+          .on( 'click', function (d) {
+              d3.select("h1").html(d.title); 
+              d3.select("h2").html(d.name);  
+           })
+
+          .on( 'mouseenter', function() {
+            // select element in current context
+            d3.select( this )
+              .transition()
+              .attr("x", function(d) { return -60;})
+              .attr("y", function(d) { return -60;})
+              .attr("height", 100)
+              .attr("width", 100);
+          })
+          // set back
+          .on( 'mouseleave', function() {
+            d3.select( this )
+              .transition()
+              .attr("x", function(d) { return -25;})
+              .attr("y", function(d) { return -25;})
+              .attr("height", 50)
+              .attr("width", 50);
+          });
+
+  // Append hero name on roll over next to the node as well
+  nodeEnter.append("text")
+      .attr("class", "nodetext")
+      .attr("x", x_browser)
+      .attr("y", y_browser +15)
+      .attr("fill", tcBlack)
+      .text(function(d) { return d.title; });
+ 
+ 
+  // Exit any old nodes.
+  node.exit().remove();
+ 
+ 
+  // Re-select for update.
+  path = vis.selectAll("path.link");
+  node = vis.selectAll("g.node");
+ 
+function tick() {
+ 
+ 
+    path.attr("d", function(d) {
+ 
+     var dx = d.target.x - d.source.x,
+           dy = d.target.y - d.source.y,
+           dr = Math.sqrt(dx * dx + dy * dy);
+           return   "M" + d.source.x + "," 
+            + d.source.y 
+            + "A" + dr + "," 
+            + dr + " 0 0,1 " 
+            + d.target.x + "," 
+            + d.target.y;
+  });
+    node.attr("transform", nodeTransform);    
+  }
+}
+
+ 
+/**
+ * Gives the coordinates of the border for keeping the nodes inside a frame
+ * http://bl.ocks.org/mbostock/1129492
+ */ 
+function nodeTransform(d) {
+  d.x =  Math.max(maxNodeSize, Math.min(w - (d.imgwidth/2 || 16), d.x));
+    d.y =  Math.max(maxNodeSize, Math.min(h - (d.imgheight/2 || 16), d.y));
+    return "translate(" + d.x + "," + d.y + ")";
+   }
+ 
+/**
+ * Toggle children on click.
+ */ 
+function click(d) {
+  if (d.children) {
+    d._children = d.children;
+    d.children = null;
+  } else {
+    d.children = d._children;
+    d._children = null;
+  }
+ 
+  update();
+}
+ 
+ 
+/**
+ * Returns a list of all nodes under the root.
+ */ 
+function flatten(root) {
+  var nodes = []; 
+  var i = 0;
+ 
+  function recurse(node) {
+    if (node.children) 
+      node.children.forEach(recurse);
+    if (!node.id) 
+      node.id = ++i;
+    nodes.push(node);
+  }
+ 
+  recurse(root);
+  return nodes;
+} 
+  
+}
+
+  // This is called with the results from from FB.getLoginStatus().
+  function statusChangeCallback(response) {
+    // The response object is returned with a status field that lets the
+    // app know the current login status of the person.
+    // Full docs on the response object can be found in the documentation
+    // for FB.getLoginStatus().
+    if (response.status === 'connected') {
+      $('#btnfrnd').css("display", "initial");
+      url = 'https://graph.facebook.com/me?fields=picture,name&access_token='+response.authResponse.accessToken;
+        $.ajax({
+          type: "GET",
+          url: url,
+          success: function(response){
+              d3json['name']=response.name;
+              d3json['title']=response.name;
+              d3json['img']=response.picture.data.url;
+              d3json['children']=[];
+          },
+          failure: function(){
+            alert('failure');
+        }
+        });
+      // Logged into your app and Facebook.
+      $('#access_token').val(response.authResponse.accessToken);
+      testAPI();
+    } else if (response.status === 'not_authorized') {
+      // The person is logged into Facebook, but not your app.
+      document.getElementById('status').innerHTML = 'Please log ' +
+        'into this app.';
+    } else {
+      // The person is not logged into Facebook, so we're not sure if
+      // they are logged into this app or not.
+      document.getElementById('status').innerHTML = 'Please log ' +
+        'into Facebook.';
+    }
+  }
+
+  // This function is called when someone finishes with the Login
+  // Button.  See the onlogin handler attached to it in the sample
+  // code below.
+  function checkLoginState() {
+    FB.getLoginStatus(function(response) {
+      statusChangeCallback(response);
+    });
+  }
+
+  window.fbAsyncInit = function() {
+  FB.init({
+    appId      : '142256179522757',
+    cookie     : true,  // enable cookies to allow the server to access 
+                        // the session
+    xfbml      : true,  // parse social plugins on this page
+    version    : 'v2.5' // use graph api version 2.5
+  });
+
+  // Now that we've initialized the JavaScript SDK, we call 
+  // FB.getLoginStatus().  This function gets the state of the
+  // person visiting this page and can return one of three states to
+  // the callback you provide.  They can be:
+  //
+  // 1. Logged into your app ('connected')
+  // 2. Logged into Facebook, but not your app ('not_authorized')
+  // 3. Not logged into Facebook and can't tell if they are logged into
+  //    your app or not.
+  //
+  // These three cases are handled in the callback function.
+
+  FB.getLoginStatus(function(response) {
+    statusChangeCallback(response);
+  });
+
+  };
+
+  // Load the SDK asynchronously
+  (function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en_US/sdk.js";
+    fjs.parentNode.insertBefore(js, fjs);
+  }(document, 'script', 'facebook-jssdk'));
+
+  // Here we run a very simple test of the Graph API after login is
+  // successful.  See statusChangeCallback() for when this call is made.
+  function testAPI() {
+    FB.api('/me', function(response) {
+      document.getElementById('status').innerHTML =
+        'Thanks for logging in, ' + response.name + '!';
+    });
+  }
+function getFriends() {
+    url = 'https://graph.facebook.com/me/invitable_friends?access_token='+$('#access_token').val();
+    $.ajax({
+      type: "GET",
+      url: url,
+      success: function(response){
+          list = response.data;
+          ifriends = [];
+          for (x in list) {
+              temp = {};
+              temp['name'] = list[x].name;
+              temp['title'] = list[x].name;
+              temp['img'] = list[x].picture.data.url;
+              ifriends.push(temp);
+          }
+          finalTag = {};
+          finalTag['name'] = 'Invited';
+          finalTag['children'] = ifriends;
+          d3json['children'].push(finalTag);
+          getTaggedFriends();
+      },
+      failure: function(){
+        alert('failure');
+    }
+    });
+}
+function getTaggedFriends() {
+    url = 'https://graph.facebook.com/me/taggable_friends?access_token='+$('#access_token').val();
+    $.ajax({
+      type: "GET",
+      url: url,
+      success: function(response){
+          list = response.data;
+          ifriends = [];
+          for (x in list) {
+              temp = {};
+              temp['name'] = list[x].name;
+              temp['title'] = list[x].name;
+              temp['img'] = list[x].picture.data.url;
+              ifriends.push(temp);
+          }
+          finalTag = {};
+          finalTag['name'] = 'Tagged';
+          finalTag['children'] = ifriends;
+          d3json['children'].push(finalTag);
+          render();
+      },
+      failure: function(){
+        alert('failure');
+    }
+    });
+}
+
+$(document).ready(function() {
+  
+});
+</script>
+<input type="hidden" id="access_token" name="access_token"/>
+<!--
+  Below we include the Login Button social plugin. This button uses
+  the JavaScript SDK to present a graphical Login button that triggers
+  the FB.login() function when clicked.
+-->
+
+<fb:login-button scope="public_profile,email,user_friends,read_custom_friendlists" onlogin="checkLoginState();">
+</fb:login-button>
+
+<input type="button" id="btnfrnd" style="display:none;" class="btn" onclick="getFriends();" value="Friend List"/>
+
+<div id="status">
+</div>
+
+<section id="vis"></section> 
+</body>
+</html>
